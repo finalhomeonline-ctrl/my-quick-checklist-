@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Task Tracker</title>
+    <!-- Load SheetJS for Excel Export -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary: #4CAF50;
+            --bg: #f4f7f6;
+            --card: #ffffff;
+            --text: #333;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+        }
+
+        h2 { text-align: center; margin-bottom: 10px; }
+
+        /* Progress Bar Styles */
+        .progress-container {
+            background: #ddd;
+            border-radius: 20px;
+            height: 25px;
+            width: 100%;
+            margin-bottom: 20px;
+            position: sticky;
+            top: 10px;
+            z-index: 100;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        #progress-bar {
+            background: var(--primary);
+            height: 100%;
+            width: 0%;
+            border-radius: 20px;
+            transition: width 0.4s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        /* Input Styles */
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 16px; /* Prevents iOS zoom on focus */
+        }
+
+        button {
+            padding: 12px 15px;
+            border: none;
+            border-radius: 8px;
+            background: var(--primary);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        /* Task List Styles */
+        .task-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .task-item {
+            background: var(--card);
+            margin-bottom: 10px;
+            padding: 15px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .task-item.completed span {
+            text-decoration: line-through;
+            color: #888;
+        }
+
+        .task-item input[type="checkbox"] {
+            width: 22px;
+            height: 22px;
+            margin-right: 15px;
+            accent-color: var(--primary);
+        }
+
+        .task-item span {
+            flex: 1;
+            font-size: 16px;
+        }
+
+        .delete-btn {
+            background: #ff5252;
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+
+        .actions {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .export-btn {
+            background: #2196F3;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>My Checklist</h2>
+
+    <!-- Progress Bar -->
+    <div class="progress-container">
+        <div id="progress-bar">0%</div>
+    </div>
+
+    <!-- Add Task -->
+    <div class="input-group">
+        <input type="text" id="taskInput" placeholder="Enter new task...">
+        <button onclick="addTask()">Add</button>
+    </div>
+
+    <!-- List -->
+    <ul id="taskList" class="task-list"></ul>
+
+    <!-- Export/Control Buttons -->
+    <div class="actions">
+        <button class="export-btn" onclick="exportToExcel()">Export to Excel</button>
+        <button style="background:#888" onclick="clearAll()">Clear All</button>
+    </div>
+</div>
+
+<script>
+    let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+
+    function saveAndRender() {
+        localStorage.setItem('tasks', JSON.stringify(tasks));
+        renderTasks();
+    }
+
+    function addTask() {
+        const input = document.getElementById('taskInput');
+        if (input.value.trim() === "") return;
+        
+        tasks.push({
+            id: Date.now(),
+            text: input.value,
+            completed: false
+        });
+        
+        input.value = "";
+        saveAndRender();
+    }
+
+    function toggleTask(id) {
+        tasks = tasks.map(t => t.id === id ? {...t, completed: !t.completed} : t);
+        saveAndRender();
+    }
+
+    function deleteTask(id) {
+        tasks = tasks.filter(t => t.id !== id);
+        saveAndRender();
+    }
+
+    function clearAll() {
+        if(confirm("Delete all tasks?")) {
+            tasks = [];
+            saveAndRender();
+        }
+    }
+
+    function updateProgressBar() {
+        const total = tasks.length;
+        const completed = tasks.filter(t => t.completed).length;
+        const percentage = total === 0 ? 0 : Math.round((completed / total) * 100);
+        
+        const bar = document.getElementById('progress-bar');
+        bar.style.width = percentage + "%";
+        bar.innerText = percentage + "%";
+    }
+
+    function renderTasks() {
+        const list = document.getElementById('taskList');
+        list.innerHTML = "";
+
+        tasks.forEach(task => {
+            const li = document.createElement('li');
+            li.className = `task-item ${task.completed ? 'completed' : ''}`;
+            li.innerHTML = `
+                <input type="checkbox" ${task.completed ? 'checked' : ''} onchange="toggleTask(${task.id})">
+                <span>${task.text}</span>
+                <button class="delete-btn" onclick="deleteTask(${task.id})">✕</button>
+            `;
+            list.appendChild(li);
+        });
+
+        updateProgressBar();
+    }
+
+    // EXPORT TO EXCEL LOGIC
+    function exportToExcel() {
+        if (tasks.length === 0) {
+            alert("No tasks to export!");
+            return;
+        }
+
+        // Prepare data for Excel
+        const data = tasks.map(t => ({
+            "Status": t.completed ? "COMPLETED" : "PENDING",
+            "Task Name": t.text,
+            "Date Created": new Date(t.id).toLocaleDateString()
+        }));
+
+        // Create Worksheet
+        const worksheet = XLSX.utils.json_to_sheet(data);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Tasks");
+
+        // Generate File and Trigger Download
+        XLSX.writeFile(workbook, "My_Task_List.xlsx");
+    }
+
+    // Initial Load
+    renderTasks();
+</script>
+
+</body>
+</html>
